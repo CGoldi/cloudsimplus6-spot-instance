@@ -1,0 +1,7 @@
+#Time stamp (microseconds),Missing info,jobID,Task index,machine ID,Event type (0-SUBMIT 1-SCHEDULE 2-EVICT 3-FAIL 4-FINISH 5-KILL 6-LOST ...),username,Scheduling class,Priority,resource request for CPU cores (%),resource request for RAM (%),resource request for local disk space (%),different-machine constraint
+31000000,,2,2,243096,0,RyCO/1PCdI6fV/w+5a72xg=,3,9,0.125,0.09021,0.41055,0
+42000000,,2,2,243096,1,RyCO/1PCdI6fV/w+5a72xg=,3,9,0.125,0.09021,0.41055,0
+45000000,,2,2,243096,4,RyCO/1PCdI6fV/w+5a72xg=,3,9,0.125,0.09021,0.41055,0
+131000000,,3,3,243096,0,RyCO/1PCdI6fV/w+5a72xg=,3,9,0.125,0.09021,0.41055,0
+142000000,,3,3,243096,1,RyCO/1PCdI6fV/w+5a72xg=,3,9,0.125,0.09021,0.41055,0
+145000000,,3,3,243096,4,RyCO/1PCdI6fV/w+5a72xg=,3,9,0.125,0.09021,0.41055,0
