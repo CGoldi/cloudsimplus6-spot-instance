@@ -1,7 +1,7 @@
 package example;
 
 import allocation.DatacenterBrokerDynamic;
-import allocation.DynamicAllocation;
+import allocation.DynamicAllocationHLEM;
 import org.cloudbus.cloudsim.brokers.DatacenterBroker;
 import org.cloudbus.cloudsim.cloudlets.Cloudlet;
 import org.cloudbus.cloudsim.cloudlets.CloudletSimple;
@@ -11,7 +11,7 @@ import org.cloudbus.cloudsim.datacenters.DatacenterSimple;
 import org.cloudbus.cloudsim.distributions.ContinuousDistribution;
 import org.cloudbus.cloudsim.distributions.UniformDistr;
 import org.cloudbus.cloudsim.hosts.Host;
-import org.cloudbus.cloudsim.hosts.HostSimple;
+import org.cloudbus.cloudsim.hosts.HostDynamic;
 import org.cloudbus.cloudsim.resources.Pe;
 import org.cloudbus.cloudsim.resources.PeSimple;
 import org.cloudbus.cloudsim.utilizationmodels.UtilizationModel;
@@ -151,13 +151,21 @@ public class RandomlyGeneratedInstances {
      */
     private Datacenter createDatacenter() {
         final List<Host> hostList = new ArrayList<>(HOSTS);
-        for (int i = 0; i < HOSTS; i++) {
+        for (int i = 0; i < 1; i++) {
             Host host = createHost();
+            hostList.add(host);
+        }
+        for (int i = 0; i < 2; i++) {
+            Host host = createHostOther();
+            hostList.add(host);
+        }
+        for (int i = 0; i < 1; i++) {
+            Host host = createHostBig();
             hostList.add(host);
         }
 
         // Assign the DynamicAllocation policy to enable the behavior of spot instances
-        final DynamicAllocation allocationPolicy = new DynamicAllocation();
+        final DynamicAllocationHLEM allocationPolicy = new DynamicAllocationHLEM();
         return new DatacenterSimple(simulation, hostList, allocationPolicy);
     }
 
@@ -170,9 +178,27 @@ public class RandomlyGeneratedInstances {
         final List<Pe> peList = new ArrayList<>(HOST_PES);
         //List of Host's CPUs (Processing Elements, PEs)
         for (int i = 0; i < HOST_PES; i++) {
-            peList.add(new PeSimple(1000));
+            peList.add(new PeSimple(2000));
         }
-        return new HostSimple(HOST_RAM, HOST_BW, HOST_STORAGE, peList);
+        return new HostDynamic(HOST_RAM, HOST_BW, HOST_STORAGE, peList);
+    }
+
+    private Host createHostOther() {
+        final List<Pe> peList = new ArrayList<>(HOST_PES);
+        //List of Host's CPUs (Processing Elements, PEs)
+        for (int i = 0; i < 7; i++) {
+            peList.add(new PeSimple(2000));
+        }
+        return new HostDynamic(2000, 14000, 700000, peList);
+    }
+
+    private Host createHostBig() {
+        final List<Pe> peList = new ArrayList<>(HOST_PES);
+        //List of Host's CPUs (Processing Elements, PEs)
+        for (int i = 0; i < 12; i++) {
+            peList.add(new PeSimple(2000));
+        }
+        return new HostDynamic(4024, 12000, 1700000, peList);
     }
 
     /**

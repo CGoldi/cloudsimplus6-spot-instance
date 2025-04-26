@@ -46,7 +46,6 @@ import org.cloudbus.cloudsim.vms.Vm;
 import org.cloudbus.cloudsim.vms.VmSimple;
 import org.cloudsimplus.builders.tables.CloudletsTableBuilder;
 import org.cloudsimplus.builders.tables.CsvTable;
-import org.cloudsimplus.builders.tables.Table;
 import org.cloudsimplus.builders.tables.TextTableColumn;
 import org.cloudsimplus.traces.google.GoogleTaskEventsTraceReader;
 import org.cloudsimplus.traces.google.GoogleTaskUsageTraceReader;

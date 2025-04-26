@@ -1,10 +1,9 @@
 package example;
 
 import allocation.DatacenterBrokerDynamic;
-import allocation.DynamicAllocation;
+import allocation.DynamicAllocationHLEM;
 import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
+import org.cloudbus.cloudsim.hosts.HostDynamic;
 import org.cloudbus.cloudsim.brokers.DatacenterBroker;
 import org.cloudbus.cloudsim.cloudlets.Cloudlet;
 import org.cloudbus.cloudsim.cloudlets.CloudletSimple;
@@ -12,7 +11,6 @@ import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.datacenters.Datacenter;
 import org.cloudbus.cloudsim.datacenters.DatacenterSimple;
 import org.cloudbus.cloudsim.hosts.Host;
-import org.cloudbus.cloudsim.hosts.HostSimple;
 import org.cloudbus.cloudsim.resources.Pe;
 import org.cloudbus.cloudsim.resources.PeSimple;
 import org.cloudbus.cloudsim.utilizationmodels.UtilizationModel;
@@ -188,7 +186,7 @@ public class RestartingInterruptedSpot {
             hostList.add(host);
         }
 
-        final DynamicAllocation allocationPolicy = new DynamicAllocation();
+        final DynamicAllocationHLEM allocationPolicy = new DynamicAllocationHLEM();
 
         //Uses a VmAllocationPolicySimple by default to allocate VMs
         return new DatacenterSimple(simulation, hostList, allocationPolicy);
@@ -206,7 +204,7 @@ public class RestartingInterruptedSpot {
             peList.add(new PeSimple(1000));
         }
 
-        return new HostSimple(HOST_RAM, HOST_BW, HOST_STORAGE, peList);
+        return new HostDynamic(HOST_RAM, HOST_BW, HOST_STORAGE, peList);
     }
 
     /**
