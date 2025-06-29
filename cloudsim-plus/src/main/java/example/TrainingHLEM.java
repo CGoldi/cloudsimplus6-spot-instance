@@ -2,9 +2,8 @@ package example;
 
 import allocation.DatacenterBrokerDynamic;
 import allocation.DynamicAllocationHLEM;
-import allocation.DynamicAllocationHLEMAdjusted;
+import allocation.DynamicAllocationHLEMTrain;
 import com.google.gson.Gson;
-import org.cloudbus.cloudsim.core.CloudSimTags;
 import org.cloudbus.cloudsim.hosts.HostDynamic;
 import org.cloudbus.cloudsim.brokers.DatacenterBroker;
 import org.cloudbus.cloudsim.cloudlets.Cloudlet;
@@ -43,7 +42,7 @@ import java.util.*;
 public class RestartingInterruptedSpot {
 
     // Host configuration
-    private static final int HOSTS = 6;
+    private static final int HOSTS = 2;
     private static final int HOST_PES = 8;
     private static final int HOST_RAM = 2048;  //in Megabytes
     private static final int HOST_BW = 10000;  //in Megabit/s
@@ -57,7 +56,6 @@ public class RestartingInterruptedSpot {
 
     private final CloudSim simulation;
     private final DatacenterBrokerDynamic broker0;
-    private final Datacenter datacenter0;
     private final List<Cloudlet> cloudletList = new ArrayList<>();
     private final List<DatacenterBroker> brokerList = new ArrayList<>();
 
@@ -69,11 +67,9 @@ public class RestartingInterruptedSpot {
     private RestartingInterruptedSpot() throws IOException {
 
         simulation = new CloudSim(0.5);
-        simulation.terminateAt(400);
-        datacenter0 = createDatacenter();
+        simulation.terminateAt(70);
+        Datacenter datacenter0 = createDatacenter();
         datacenter0.setSchedulingInterval(1);
-
-        System.out.println(datacenter0.getHostList());
 
         //Creates a broker that is a software acting on behalf a cloud customer to manage his/her VMs and Cloudlets
         broker0 = new DatacenterBrokerDynamic(simulation);
@@ -85,7 +81,6 @@ public class RestartingInterruptedSpot {
         //Initial Vms and cloudlet creation
         List<DynamicVm> vmList = createSpotVms();
         vmList.addAll(createOnDemand());
-        vmList.addAll(createOnDemandLater());
         submitVMandCreateCloudlet(vmList);
 
         simulation.addOnClockTickListener(this::updateProcessingforVms);
@@ -160,9 +155,8 @@ public class RestartingInterruptedSpot {
     private void updateProcessingforVms(EventInfo eventInfo) {
         // manually update processing because it doesn't work if vms are only resumed
         for (DatacenterBroker broker : brokerList) {
-           for (Vm vm : new ArrayList<Vm>(broker.getVmExecList())) {
-               vm.updateProcessing(simulation.clock(), vm.getHost().getVmScheduler().getAllocatedMips(vm));
-               datacenter0.schedule(1, CloudSimTags.VM_UPDATE_CLOUDLET_PROCESSING);
+            for (Vm vm : broker.getVmExecList()) {
+                vm.updateProcessing(simulation.clock(), vm.getHost().getVmScheduler().getAllocatedMips(vm));
             }
         }
     }
@@ -180,16 +174,6 @@ public class RestartingInterruptedSpot {
         }
     }
 
-    private void onHostAllocationListener(VmHostEventInfo vmHostEventInfo) {
-        DynamicVm vm = (DynamicVm) vmHostEventInfo.getVm();
-
-        vm.updateProcessing(simulation.clock(), vm.getHost().getVmScheduler().getAllocatedMips(vm));
-    }
-
-    private void processingListener(VmHostEventInfo vmHostEventInfo) {
-        DynamicVm vm = (DynamicVm) vmHostEventInfo.getVm();
-    }
-
     /**
      * Creates a datacenter with the specified and initiates host creation and
      * the allocation policy gets assigned to the Datacenter
@@ -203,7 +187,7 @@ public class RestartingInterruptedSpot {
             hostList.add(host);
         }
 
-        final DynamicAllocationHLEMAdjusted allocationPolicy = new DynamicAllocationHLEMAdjusted();
+        final DynamicAllocationHLEMTrain allocationPolicy = new DynamicAllocationHLEMTrain();
 
         //Uses a VmAllocationPolicySimple by default to allocate VMs
         return new DatacenterSimple(simulation, hostList, allocationPolicy);
@@ -256,23 +240,6 @@ public class RestartingInterruptedSpot {
                     .setSubmissionDelay(10);
             vm.setPersistentRequest(true);
             vm.setWaitingTime(40);
-            vm.addOnUpdateProcessingListener(this::processingListener);
-            list.add(vm);
-        }
-
-        return list;
-    }
-
-    private List<DynamicVm> createOnDemandLater() {
-        final List<DynamicVm> list = new ArrayList<>(VMS);
-        for (int i = 0; i < VMS; i++) {
-
-            final OnDemandInstance vm = new OnDemandInstance(1000, VM_PES, true);
-            vm.setRam(512).setBw(1000).setSize(10000).addOnHostDeallocationListener(this::onHostDeallocationListener)
-                .setSubmissionDelay(100);
-            vm.setPersistentRequest(true);
-            vm.setWaitingTime(40);
-            vm.addOnUpdateProcessingListener(this::processingListener);
             list.add(vm);
         }
 

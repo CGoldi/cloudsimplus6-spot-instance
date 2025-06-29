@@ -5,9 +5,11 @@ import org.cloudbus.cloudsim.brokers.DatacenterBroker;
 import org.cloudbus.cloudsim.cloudlets.Cloudlet;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.core.CloudSimTags;
+import org.cloudbus.cloudsim.core.events.CloudSimEvent;
 import org.cloudbus.cloudsim.datacenters.Datacenter;
 import org.cloudbus.cloudsim.vms.Vm;
 import org.cloudbus.cloudsim.brokers.DatacenterBrokerSimple;
+import org.cloudbus.cloudsim.vms.VmSimple;
 import vmtypes.DynamicVm;
 import vmtypes.SpotInstance;
 
@@ -123,6 +125,7 @@ public class DatacenterBrokerDynamic extends allocation.DatacenterBrokerAbstract
             vm.setLastTriedDatacenter(Datacenter.NULL);
             vm.setFailed(false);
             vm.setCreated(false);
+            vm.setPersistentRequest(true);
             vm.setStartTime(-1);
             vm.setSubmissionDelay(0);
             vm.setStopTime(-1);
@@ -144,16 +147,19 @@ public class DatacenterBrokerDynamic extends allocation.DatacenterBrokerAbstract
         }
 
         vmsToResubmit.addAll(spotVmsToResubmit);
-        resubmittingList.clear();
-
-        submitVmList(vmsToResubmit);
+        submitVmList(vmsToResubmit, true);
 
         Set<Vm> set = new HashSet<>(getVmExecList());
         getVmExecList().clear();
         getVmExecList().addAll(set);
+        resubmittingList.clear();
     }
 
     public void resubmitSomeVms(int count) {
+        resubmitSomeVmsDelayed(count, 0);
+    }
+
+    public void resubmitSomeVmsDelayed(int count, double delay) {
         List<DynamicVm> vmsToResubmit = new ArrayList<>();
         List<DynamicVm> spotVmsToResubmit = new ArrayList<>();
 
@@ -171,7 +177,7 @@ public class DatacenterBrokerDynamic extends allocation.DatacenterBrokerAbstract
             vm.setFailed(false);
             vm.setCreated(false);
             vm.setStartTime(-1);
-            vm.setSubmissionDelay(0);
+            vm.setSubmissionDelay(delay);
             vm.setStopTime(-1);
 
             if (vm.getState() == DynamicVm.State.WAITING) {
@@ -188,12 +194,16 @@ public class DatacenterBrokerDynamic extends allocation.DatacenterBrokerAbstract
                 }
             }
 
+            LOGGER.info("{}: {}: Resubmitting {} .", getSimulation().clockStr(), getName(), vm);
+
             resubmittingList.remove(0);
         }
 
+
+
         vmsToResubmit.addAll(spotVmsToResubmit);
 
-        submitVmList(vmsToResubmit);
+        submitVmList(vmsToResubmit, true);
 
         Set<Vm> set = new HashSet<>(getVmExecList());
         getVmExecList().clear();
@@ -214,6 +224,29 @@ public class DatacenterBrokerDynamic extends allocation.DatacenterBrokerAbstract
         requestDatacentersToCreateWaitingCloudlets();
     }
 
+    @Override
+    public DatacenterBroker requestIdleVmDestruction(final Vm vm) {
+        final double delay = getVmDestructionDelayFunction().apply(vm);
+
+        if (vm.isCreated()) {
+            if((delay > DEF_VM_DESTRUCTION_DELAY && vm.isIdleEnough(delay)) || isFinished()) {
+                LOGGER.info("{}: {}: Requesting {} destruction.", getSimulation().clockStr(), getName(), vm);
+                resubmitSomeVmsDelayed(15, 5);
+                sendNow(getDatacenter(vm), CloudSimTags.VM_DESTROY, vm);
+            }
+
+            if(isVmIdlenessVerificationRequired((VmSimple)vm)) {
+                getSimulation().send(
+                    new CloudSimEvent(getVmDestructionDelayFunction().apply(vm),
+                        vm.getHost().getDatacenter(),
+                        CloudSimTags.VM_UPDATE_CLOUDLET_PROCESSING));
+                return this;
+            }
+        }
+
+        requestShutdownWhenIdle();
+        return this;
+    }
 }
 
 

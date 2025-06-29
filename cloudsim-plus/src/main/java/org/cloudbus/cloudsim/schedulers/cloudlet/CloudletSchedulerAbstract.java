@@ -208,7 +208,7 @@ public abstract class CloudletSchedulerAbstract implements CloudletScheduler {
 
     @Override
     public List<CloudletExecution> getCloudletExecList() {
-        return cloudletExecList;
+        return Collections.unmodifiableList(cloudletExecList);
     }
 
     protected void addCloudletToWaitingList(final CloudletExecution cle) {
@@ -376,7 +376,7 @@ public abstract class CloudletSchedulerAbstract implements CloudletScheduler {
          the processing update is requested right away.
          */
         final Datacenter dc = vm.getHost().getDatacenter();
-//        dc.schedule(CloudSimTags.VM_UPDATE_CLOUDLET_PROCESSING);
+        dc.schedule(CloudSimTags.VM_UPDATE_CLOUDLET_PROCESSING);
         return true;
     }
 

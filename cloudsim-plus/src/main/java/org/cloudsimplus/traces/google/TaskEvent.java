@@ -67,16 +67,6 @@ public final class TaskEvent extends TaskData {
     private String userName;
     private double timestamp;
 
-    public long getMachineID() {
-        return machineID;
-    }
-
-    public void setMachineID(long machineID) {
-        this.machineID = machineID;
-    }
-
-    private long machineID;
-
     public int getPriority() {
         return priority;
     }

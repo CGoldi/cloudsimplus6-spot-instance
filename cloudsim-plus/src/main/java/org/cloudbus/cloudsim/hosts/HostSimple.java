@@ -362,8 +362,6 @@ public class HostSimple implements Host {
 
     @Override
     public HostSuitability createVm(final Vm vm) {
-
-
         final HostSuitability suitability = createVmInternal(vm);
         if(suitability.fully()) {
             addVmToCreatedList(vm);

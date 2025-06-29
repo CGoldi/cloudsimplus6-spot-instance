@@ -1,17 +1,10 @@
 package allocation;
 
 import org.cloudbus.cloudsim.allocationpolicies.VmAllocationPolicy;
-import org.cloudbus.cloudsim.allocationpolicies.VmAllocationPolicyAbstract;
 import org.cloudbus.cloudsim.allocationpolicies.VmAllocationPolicySimple;
-import org.cloudbus.cloudsim.brokers.DatacenterBroker;
-import org.cloudbus.cloudsim.cloudlets.Cloudlet;
-import org.cloudbus.cloudsim.cloudlets.CloudletExecution;
-import org.cloudbus.cloudsim.datacenters.Datacenter;
 import org.cloudbus.cloudsim.hosts.Host;
 import org.cloudbus.cloudsim.hosts.HostDynamic;
-import org.cloudbus.cloudsim.hosts.HostSuitability;
 import org.cloudbus.cloudsim.vms.Vm;
-import vmtypes.DynamicVm;
 import vmtypes.OnDemandInstance;
 import vmtypes.SpotInstance;
 
@@ -22,7 +15,7 @@ import java.util.function.Function;
 /**
  * This class has been adapted from {@link VmAllocationPolicySimple}
  */
-public class DynamicAllocationHLEM extends DynamicAllocation {
+public class DynamicAllocationHLEMAdjusted extends DynamicAllocation {
 
     /** @see #getLastHostIndex() */
     private int lastHostIndex;
@@ -31,10 +24,12 @@ public class DynamicAllocationHLEM extends DynamicAllocation {
 
     private final double resourceCarryingFactor = 0.95;
 
+    private final double spotImpact = 1;
+
     /**
      * Instantiates the DynamicAllocation allocation policy
      */
-    public DynamicAllocationHLEM() {
+    public DynamicAllocationHLEMAdjusted() {
         super();
     }
 
@@ -45,7 +40,7 @@ public class DynamicAllocationHLEM extends DynamicAllocation {
      * @param findHostForVmFunction a {@link Function} to select a Host for a given Vm.
      * @see VmAllocationPolicy#setFindHostForVmFunction(BiFunction)
      */
-    public DynamicAllocationHLEM(final BiFunction<VmAllocationPolicy, Vm, Optional<Host>> findHostForVmFunction) {
+    public DynamicAllocationHLEMAdjusted(final BiFunction<VmAllocationPolicy, Vm, Optional<Host>> findHostForVmFunction) {
         super(findHostForVmFunction);
     }
 
@@ -233,19 +228,22 @@ public class DynamicAllocationHLEM extends DynamicAllocation {
 
         for (String key : resourceValues.keySet()) {
             resourceValues.get(key).put("weight", resourceValues.get(key).get("variation") / variationSum);
+            System.out.println(key + ": " + resourceValues.get(key).get("weight"));
         }
 
         /* Step 7 HostSelection */
         for (Host host : suitableHosts.keySet()) {
             double hostSelection = 0.0;
+            double spotLoad = 0.0;
             for (String key : resourceValues.keySet()) {
                 hostSelection += (resourceValues.get(key).get("weight") * (double) suitableHosts.get(host).get(key + "AvailableCapacity"));
+                spotLoad += (resourceValues.get(key).get("weight") * resourceValues.get(key).get("spotLoad"));
             }
             if (Double.isNaN(hostSelection)) {
                 System.out.println(hostSelection);
                 System.out.println("check Nan");
             }
-            suitableHosts.get(host).put("hostSelection", hostSelection);
+            suitableHosts.get(host).put("hostSelection", hostSelection * (1 + spotImpact * spotLoad));
             sortedHosts.put(hostSelection, host);
         }
 
@@ -279,6 +277,39 @@ public class DynamicAllocationHLEM extends DynamicAllocation {
 
             double proportionLog = proportion * Math.log(proportion);
             double MathLog = Math.log(proportion); // For debugging
+
+            HostDynamic dynamicHost = (HostDynamic) host;
+
+            switch (key) {
+                case "Pe":
+                    if (dynamicHost.getSpotPeCapacityUsage() > 0) {
+                        resourceValues.get(key).put("spotLoad", (double) dynamicHost.getSpotPeCapacityUsage() / (host.getBusyPesNumber() + host.getFreePesNumber()));
+                    } else {
+                        resourceValues.get(key).put("spotLoad", 0.0);
+                    }
+                    break;
+                case "Ram":
+                    if (dynamicHost.getSpotRamCapacityUsage() > 0) {
+                        resourceValues.get(key).put("spotLoad", (double) dynamicHost.getSpotRamCapacityUsage() / host.getRam().getCapacity());
+                    } else {
+                        resourceValues.get(key).put("spotLoad", 0.0);
+                    }
+                    break;
+                case "Storage":
+                    if (dynamicHost.getSpotStorageCapacityUsage() > 0) {
+                        resourceValues.get(key).put("spotLoad", (double) dynamicHost.getSpotStorageCapacityUsage() /  host.getStorage().getCapacity());
+                    } else {
+                        resourceValues.get(key).put("spotLoad", 0.0);
+                    }
+                    break;
+                case "Bw":
+                    if (dynamicHost.getSpotBwCapacityUsage() > 0) {
+                        resourceValues.get(key).put("spotLoad", (double) dynamicHost.getSpotBwCapacityUsage() / host.getBw().getCapacity());
+                    } else {
+                        resourceValues.get(key).put("spotLoad", 0.0);
+                    }
+                    break;
+            }
 
             // set to 0 if availableCapacity is 0 to prevent NaN
             if (Double.isNaN(proportionLog)) {

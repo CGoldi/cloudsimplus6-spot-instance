@@ -464,8 +464,7 @@ public final class GoogleTaskEventsTraceReader extends GoogleTraceReaderAbstract
             .setSchedulingClass(FieldIndex.SCHEDULING_CLASS.getValue(this))
             .setUserName(FieldIndex.USERNAME.getValue(this))
             .setJobId(FieldIndex.JOB_ID.getValue(this))
-            .setTaskIndex(FieldIndex.TASK_INDEX.getValue(this))
-            .setMachineId(FieldIndex.MACHINE_ID.getValue(this));
+            .setTaskIndex(FieldIndex.TASK_INDEX.getValue(this));
         return event;
     }
 

@@ -253,6 +253,21 @@ public abstract class DatacenterBrokerAbstract extends CloudSimEntity implements
 
         return this;
     }
+    public DatacenterBroker submitVmList(final List<? extends Vm> list, boolean resubmit) {
+        sortVmsIfComparatorIsSet(list);
+        setBrokerForEntities(list);
+        lastSubmittedVm = setIdForEntitiesWithoutOne(list, lastSubmittedVm);
+        vmWaitingList.addAll(list);
+
+        if (isStarted() && !list.isEmpty()) {
+            LOGGER.info(
+                "{}: {}: List of {} VMs were resubmitted to the broker during simulation execution. VMs creation request sent to Datacenter.",
+                getSimulation().clockStr(), getName(), list.size());
+            requestDatacenterToCreateWaitingVms(false);
+        }
+
+        return this;
+    }
 
     /**
      * Sets the broker for each {@link CustomerEntity} into a given list.
@@ -644,11 +659,15 @@ public abstract class DatacenterBrokerAbstract extends CloudSimEntity implements
         if (vm.isCreated()) {
             // TODO: added this --------------------------------------------------------------------------------
             if(vmCloudletHashMap.containsKey(vm)){
+                List<Cloudlet> cloudlets = new ArrayList<>();
                 for (Cloudlet cloudlet : vmCloudletHashMap.get(vm)) {
-//                    System.out.println(cloudlet);
-                    submitCloudlet(cloudlet);
+//
+                    cloudlets.add(cloudlet);
+                    LOGGER.warn("{}: {}: {} has been submitted.", getSimulation().clockStr(), getName(), cloudlet);
                 }
-
+                submitCloudletList(cloudlets, vm);
+                requestDatacentersToCreateWaitingCloudlets();
+                vm.updateProcessing(getSimulation().clock(), vm.getHost().getVmScheduler().getAllocatedMips(vm));
                 vmCloudletHashMap.remove(vm);
             }
             processSuccessVmCreationInDatacenter(vm);
@@ -894,7 +913,7 @@ public abstract class DatacenterBrokerAbstract extends CloudSimEntity implements
      * @param vm the Vm to check
      * @return true if a message to check VM idleness has to be sent, false otherwise
      */
-    private boolean isVmIdlenessVerificationRequired(final VmSimple vm) {
+    public boolean isVmIdlenessVerificationRequired(final VmSimple vm) {
         if(vm.hasStartedSomeCloudlet() && vm.getCloudletScheduler().isEmpty()){
             final int schedulingInterval = (int)vm.getHost().getDatacenter().getSchedulingInterval();
             final int delay = vmDestructionDelayFunction.apply(vm).intValue();

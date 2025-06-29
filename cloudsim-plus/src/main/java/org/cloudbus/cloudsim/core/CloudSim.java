@@ -300,6 +300,7 @@ public class CloudSim implements Simulation {
         if (!runClockTickAndProcessFutureEvents(until) && !isToWaitClockToReachTerminationTime()) {
             return false;
         }
+
         notifyOnSimulationStartListeners(); //it's ensured to run just once.
         if (logSimulationAborted()) {
             return false;
@@ -686,10 +687,8 @@ public class CloudSim implements Simulation {
      * @param evt the event to be processed
      */
     private void processEvent(final SimEvent evt) {
-
         if (evt.getTime() < clock) {
             throw new IllegalArgumentException("Past event detected. Event time: " + evt.getTime() + " Simulation clock: " + clock);
-
         }
 
         setClock(evt.getTime());

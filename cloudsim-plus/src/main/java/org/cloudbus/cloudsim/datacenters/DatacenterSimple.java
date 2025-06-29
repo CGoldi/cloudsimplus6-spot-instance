@@ -471,9 +471,9 @@ public class DatacenterSimple extends CloudSimEntity implements Datacenter {
 
         // if this cloudlet is in the exec queue
         if (estimatedFinishTime > 0.0 && !Double.isInfinite(estimatedFinishTime)) {
-//            send(this,
-//                getCloudletProcessingUpdateInterval(estimatedFinishTime),
-//                CloudSimTags.VM_UPDATE_CLOUDLET_PROCESSING);
+            send(this,
+                getCloudletProcessingUpdateInterval(estimatedFinishTime),
+                CloudSimTags.VM_UPDATE_CLOUDLET_PROCESSING);
         }
 
         sendCloudletSubmitAckToBroker(cloudlet, ack);
@@ -525,9 +525,9 @@ public class DatacenterSimple extends CloudSimEntity implements Datacenter {
             .getCloudletScheduler().cloudletResume(cloudlet);
 
         if (estimatedFinishTime > 0.0 && estimatedFinishTime > clock()) {
-//            schedule(this,
-//                getCloudletProcessingUpdateInterval(estimatedFinishTime),
-//                CloudSimTags.VM_UPDATE_CLOUDLET_PROCESSING);
+            schedule(this,
+                getCloudletProcessingUpdateInterval(estimatedFinishTime),
+                CloudSimTags.VM_UPDATE_CLOUDLET_PROCESSING);
         }
 
         sendAck(ack, cloudlet, CloudSimTags.CLOUDLET_RESUME_ACK);
@@ -773,7 +773,7 @@ public class DatacenterSimple extends CloudSimEntity implements Datacenter {
 
         if (nextSimulationDelay != Double.MAX_VALUE) {
             nextSimulationDelay = getCloudletProcessingUpdateInterval(nextSimulationDelay);
-//            schedule(nextSimulationDelay, CloudSimTags.VM_UPDATE_CLOUDLET_PROCESSING);
+            schedule(nextSimulationDelay, CloudSimTags.VM_UPDATE_CLOUDLET_PROCESSING);
         }
         setLastProcessTime(clock());
 
