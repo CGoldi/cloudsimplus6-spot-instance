@@ -2,9 +2,16 @@ package allocation;
 
 import org.cloudbus.cloudsim.allocationpolicies.VmAllocationPolicy;
 import org.cloudbus.cloudsim.allocationpolicies.VmAllocationPolicySimple;
+import org.cloudbus.cloudsim.brokers.DatacenterBroker;
+import org.cloudbus.cloudsim.cloudlets.Cloudlet;
+import org.cloudbus.cloudsim.core.AbstractMachine;
+import org.cloudbus.cloudsim.datacenters.Datacenter;
 import org.cloudbus.cloudsim.hosts.Host;
 import org.cloudbus.cloudsim.hosts.HostDynamic;
+import org.cloudbus.cloudsim.hosts.HostSuitability;
 import org.cloudbus.cloudsim.vms.Vm;
+import org.cloudbus.cloudsim.vms.VmSimple;
+import vmtypes.DynamicVm;
 import vmtypes.OnDemandInstance;
 import vmtypes.SpotInstance;
 
@@ -24,7 +31,7 @@ public class DynamicAllocationHLEMAdjusted extends DynamicAllocation {
 
     private final double resourceCarryingFactor = 0.95;
 
-    private final double spotImpact = 1;
+    private final double spotImpact = 1.2;
 
     /**
      * Instantiates the DynamicAllocation allocation policy
@@ -91,33 +98,23 @@ public class DynamicAllocationHLEMAdjusted extends DynamicAllocation {
                             "sum", resourceValues.get(key).get("sum") + (double) values.get(key));
                         resourceValues.get(key).put("count", resourceValues.get(key).get("count") + 1);
                     }
-                }
-            } else if (host.isSuitableForVm(vm)) {
-                /* RsDiff = (Requested Cpu − Host Cpu Utilization) * resourceCarryingFactor */
-                double rsDiff = (vm.getNumberOfPes() - host.getBusyPesNumber()) * resourceCarryingFactor;
+                } else {
+                    /* RsDiff = (Requested Cpu − Host Cpu Utilization) * resourceCarryingFactor */
+                    suitableHostsNoRsDiff.put(host, values);
 
-                Map<String, Object> values = new HashMap<>();
-                values.put("rsDiff", rsDiff);
-                values.put("Ram", (double) host.getRam().getAvailableResource());
-                values.put("Storage", (double) host.getAvailableStorage());
-                values.put("Bw", (double) host.getBw().getAvailableResource());
-                values.put("Pe", (double) host.getFreePesNumber());
-
-                suitableHostsNoRsDiff.put(host, values);
-
-                for (String key : resourceValuesNoRsDiff.keySet()) {
-                    if ((double) values.get(key) < resourceValuesNoRsDiff.get(key).get("min")
-                        || resourceValuesNoRsDiff.get(key).get("min") == 0.0) {
-                        resourceValuesNoRsDiff.get(key).put("min", (double) values.get(key));
+                    for (String key : resourceValuesNoRsDiff.keySet()) {
+                        if ((double) values.get(key) < resourceValuesNoRsDiff.get(key).get("min")
+                            || resourceValuesNoRsDiff.get(key).get("min") == 0.0) {
+                            resourceValuesNoRsDiff.get(key).put("min", (double) values.get(key));
+                        }
+                        if ((double) values.get(key) > resourceValuesNoRsDiff.get(key).get("max")) {
+                            resourceValuesNoRsDiff.get(key).put("max", (double) values.get(key));
+                        }
+                        resourceValuesNoRsDiff.get(key).put(
+                            "sum", resourceValuesNoRsDiff.get(key).get("sum") + (double) values.get(key));
+                        resourceValuesNoRsDiff.get(key).put("count", resourceValuesNoRsDiff.get(key).get("count") + 1);
                     }
-                    if ((double) values.get(key) > resourceValuesNoRsDiff.get(key).get("max")) {
-                        resourceValuesNoRsDiff.get(key).put("max", (double) values.get(key));
-                    }
-                    resourceValuesNoRsDiff.get(key).put(
-                        "sum", resourceValuesNoRsDiff.get(key).get("sum") + (double) values.get(key));
-                    resourceValuesNoRsDiff.get(key).put("count", resourceValuesNoRsDiff.get(key).get("count") + 1);
                 }
-
             } else if (host instanceof HostDynamic && (vm instanceof OnDemandInstance || (vm instanceof SpotInstance && ((SpotInstance) vm).getPriority()))) {
                 HostDynamic dynamicHost = (HostDynamic) host;
                 if (vm.getStorage().getCapacity() <= dynamicHost.getSpotStorageCapacityUsage() &&
@@ -160,7 +157,7 @@ public class DynamicAllocationHLEMAdjusted extends DynamicAllocation {
 
         if(suitableHosts.size() > 1) {
 
-            SortedMap<Double, Host> sortedHosts = hostEvaluation(resourceValues, suitableHosts);
+            SortedMap<Double, Host> sortedHosts = hostEvaluation(resourceValues, suitableHosts, (DynamicVm) vm);
             return Optional.of(sortedHosts.get(sortedHosts.firstKey()));
 
         } else if (suitableHosts.size() == 1) {
@@ -170,7 +167,7 @@ public class DynamicAllocationHLEMAdjusted extends DynamicAllocation {
 
         } else if(suitableHostsNoRsDiff.size() > 1) {
 
-            SortedMap<Double, Host> sortedHosts = hostEvaluation(resourceValuesNoRsDiff, suitableHostsNoRsDiff);
+            SortedMap<Double, Host> sortedHosts = hostEvaluation(resourceValuesNoRsDiff, suitableHostsNoRsDiff, (DynamicVm) vm);
 
             return Optional.of(sortedHosts.get(sortedHosts.firstKey()));
 
@@ -181,7 +178,7 @@ public class DynamicAllocationHLEMAdjusted extends DynamicAllocation {
         }
         else if (suitableHostsSpot.size() > 1) {
 
-            SortedMap<Double, Host> sortedHosts = hostEvaluation(resourceValuesSpot, suitableHostsSpot);
+            SortedMap<Double, Host> sortedHosts = hostEvaluation(resourceValuesSpot, suitableHostsSpot, (DynamicVm) vm);
             freeCapacity(sortedHosts.get(sortedHosts.firstKey()), vm, getDatacenter());
 
             return Optional.of(sortedHosts.get(sortedHosts.firstKey()));
@@ -199,7 +196,7 @@ public class DynamicAllocationHLEMAdjusted extends DynamicAllocation {
     }
 
     public SortedMap<Double, Host> hostEvaluation(Map<String, Map<String, Double>> resourceValues,
-                                                  Map<Host, Map<String, Object>> suitableHosts) {
+                                                  Map<Host, Map<String, Object>> suitableHosts, DynamicVm vm) {
 
         SortedMap<Double, Host> sortedHosts = new TreeMap<>();
 
@@ -243,7 +240,11 @@ public class DynamicAllocationHLEMAdjusted extends DynamicAllocation {
                 System.out.println(hostSelection);
                 System.out.println("check Nan");
             }
-            suitableHosts.get(host).put("hostSelection", hostSelection * (1 + spotImpact * spotLoad));
+            if (vm instanceof SpotInstance) {
+                suitableHosts.get(host).put("hostSelection", hostSelection * (1 + spotImpact * spotLoad));
+            } else {
+                suitableHosts.get(host).put("hostSelection", hostSelection);
+            }
             sortedHosts.put(hostSelection, host);
         }
 
@@ -335,5 +336,104 @@ public class DynamicAllocationHLEMAdjusted extends DynamicAllocation {
 
             resourceValues.put(resource, resourceMap);
         }
+    }
+
+    @Override
+    public void freeCapacity(Host host, Vm vm, Datacenter datacenter){
+        // Spot instances get removed until the host is suitable for the
+        // vm or if no more spot instances are available
+        int i = 0;
+
+        List<DynamicVm> sortedVMs = new ArrayList<>(host.getVmList());
+        sortedVMs.sort(Comparator.comparingLong(AbstractMachine::getNumberOfPes).reversed());
+
+        while (!host.isSuitableForVm(vm) && i < sortedVMs.size()) {
+            if(i==0) {
+                LOGGER.warn("Checking for Spot Destruction");
+            }
+
+            boolean priority = false;
+
+            if (vm instanceof SpotInstance) {
+                priority = ((SpotInstance) vm).getPriority();
+            }
+
+            Vm VmToDestroy = sortedVMs.get(i);
+            if (VmToDestroy instanceof SpotInstance) {
+                if (!priority || !(((SpotInstance) VmToDestroy).getPriority())) {
+
+                    DatacenterBroker broker = VmToDestroy.getBroker();
+                    if (((SpotInstance) VmToDestroy).getMinimumRunningTime() <
+                        broker.getSimulation().clock() - vm.getStartTime()) {
+
+                        broker.LOGGER.info(
+                            "{}: {}: Destroying {} on {}, free capacity for On-demand instances",
+                            broker.getSimulation().clockStr(), datacenter.getClass().getSimpleName(), VmToDestroy,
+                            VmToDestroy.getHost());
+
+                        terminationBehavior((SpotInstance) VmToDestroy);
+
+                    }
+                }
+            }
+            i++;
+        }
+    }
+
+    @Override
+    public HostSuitability allocateHostForVm(final Vm vm) {
+        if (getHostList().isEmpty()) {
+            LOGGER.error(
+                "{}: {}: {} could not be allocated because there isn't any Host for Datacenter {}",
+                vm.getSimulation().clockStr(), getClass().getSimpleName(), vm, getDatacenter().getId());
+            return new HostSuitability("Datacenter has no host.");
+        }
+
+        if (vm.isCreated()) {
+            return new HostSuitability("Vm already created.");
+        }
+/*
+        if (vm.getHost() != null && vm.getBroker() instanceof DatacenterBrokerDynamic) {
+            final Host newHost = spotAllocationSpecificHost(vm, getDatacenter(), vm.getHost());
+            if (newHost != null) {
+                return allocateHostForVm(vm, newHost);
+            }
+        }
+*/
+        final Optional<Host> optional = defaultFindHostForVm(vm);
+        if (optional.isPresent()) {
+            return allocateHostForVm(vm, optional.get());
+        }
+
+        LOGGER.warn("{}: {}: Checking for Spot {} in {}", vm.getSimulation().clockStr(), getClass().getSimpleName(), vm, getDatacenter());
+
+        // Checks if any spot instances can be destroyed to make space for other instances
+        if (vm.getBroker() instanceof DatacenterBrokerDynamic) {
+            final Host newHost = spotAllocation(vm, getDatacenter());
+            if (newHost != null) {
+                return allocateHostForVm(vm, newHost);
+            }
+        }
+
+        LOGGER.warn("{}: {}: No suitable host found for {} in {}", vm.getSimulation().clockStr(), getClass().getSimpleName(), vm, getDatacenter());
+
+        if (vm instanceof DynamicVm) {
+            // Sets the initial instance request time for Dynamic Vms
+            ((DynamicVm) vm).setInitialRequestTime(vm.getBroker().getSimulation().clock());
+
+            // Add vm to resubmitting list if it is a persistent request
+            if (vm.getBroker() instanceof DatacenterBrokerDynamic && ((DynamicVm) vm).isPersistentRequest()) {
+                ((DatacenterBrokerDynamic) vm.getBroker()).getResubmittingList().add((DynamicVm) vm);
+                vm.getBroker().getVmWaitingList().remove(vm);
+                ((DatacenterBrokerDynamic) vm.getBroker()).getResubmittingList().sort(Comparator.comparingDouble(VmSimple::getStartTime));
+
+                for (Cloudlet cloudlet : vm.getBroker().getCloudletWaitingList()) {
+                    if (cloudlet.getVm() == vm) {
+                        ((DynamicVm) vm).getFailedCloudlets().add(cloudlet);
+                    }
+                }
+            }
+        }
+        return new HostSuitability("No suitable Host found.");
     }
 }

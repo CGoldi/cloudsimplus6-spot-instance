@@ -11,6 +11,7 @@ import org.cloudbus.cloudsim.vms.Vm;
 import vmtypes.DynamicVm;
 import vmtypes.SpotInstance;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -22,7 +23,7 @@ import java.util.stream.Stream;
 /**
  * This class has been adapted from {@link VmAllocationPolicySimple}
  */
-public class DynamicAllocation extends VmAllocationPolicyAbstract {
+public class DynamicAllocation extends VmAllocationPolicyAbstract implements Serializable {
 
     /** @see #getLastHostIndex() */
     private int lastHostIndex;
@@ -101,20 +102,20 @@ public class DynamicAllocation extends VmAllocationPolicyAbstract {
         if (vm.isCreated()) {
             return new HostSuitability("Vm already created.");
         }
-
+/*
         if (vm.getHost() != null && vm.getBroker() instanceof DatacenterBrokerDynamic) {
             final Host newHost = spotAllocationSpecificHost(vm, getDatacenter(), vm.getHost());
             if (newHost != null) {
                 return allocateHostForVm(vm, newHost);
             }
         }
-
-        final Optional<Host> optional = findHostForVm(vm);
+*/
+        final Optional<Host> optional = defaultFindHostForVm(vm);
         if (optional.isPresent()) {
             return allocateHostForVm(vm, optional.get());
         }
 
-
+        LOGGER.warn("{}: {}: Checking for Spot {} in {}", vm.getSimulation().clockStr(), getClass().getSimpleName(), vm, getDatacenter());
 
         // Checks if any spot instances can be destroyed to make space for other instances
         if (vm.getBroker() instanceof DatacenterBrokerDynamic) {

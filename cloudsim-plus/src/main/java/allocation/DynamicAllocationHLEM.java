@@ -67,6 +67,8 @@ public class DynamicAllocationHLEM extends DynamicAllocation {
         Map<String, Map<String, Double>> resourceValuesSpot = new HashMap<>();
         resetResourceValues(resourceValuesSpot, resourceList);
 
+        boolean rsdiffnot = false;
+
         for (final Host host : hostList) {
             /* Step 1: Filter for suitable hosts based on Resource requirements */
             if (host.isSuitableForVm(vm)) {
@@ -96,33 +98,23 @@ public class DynamicAllocationHLEM extends DynamicAllocation {
                             "sum", resourceValues.get(key).get("sum") + (double) values.get(key));
                         resourceValues.get(key).put("count", resourceValues.get(key).get("count") + 1);
                     }
-                }
-            } else if (host.isSuitableForVm(vm)) {
-                /* RsDiff = (Requested Cpu − Host Cpu Utilization) * resourceCarryingFactor */
-                double rsDiff = (vm.getNumberOfPes() - host.getBusyPesNumber()) * resourceCarryingFactor;
+                } else {
+                    /* RsDiff = (Requested Cpu − Host Cpu Utilization) * resourceCarryingFactor */
+                    suitableHostsNoRsDiff.put(host, values);
 
-                Map<String, Object> values = new HashMap<>();
-                values.put("rsDiff", rsDiff);
-                values.put("Ram", (double) host.getRam().getAvailableResource());
-                values.put("Storage", (double) host.getAvailableStorage());
-                values.put("Bw", (double) host.getBw().getAvailableResource());
-                values.put("Pe", (double) host.getFreePesNumber());
-
-                suitableHostsNoRsDiff.put(host, values);
-
-                for (String key : resourceValuesNoRsDiff.keySet()) {
-                    if ((double) values.get(key) < resourceValuesNoRsDiff.get(key).get("min")
-                        || resourceValuesNoRsDiff.get(key).get("min") == 0.0) {
-                        resourceValuesNoRsDiff.get(key).put("min", (double) values.get(key));
+                    for (String key : resourceValuesNoRsDiff.keySet()) {
+                        if ((double) values.get(key) < resourceValuesNoRsDiff.get(key).get("min")
+                            || resourceValuesNoRsDiff.get(key).get("min") == 0.0) {
+                            resourceValuesNoRsDiff.get(key).put("min", (double) values.get(key));
+                        }
+                        if ((double) values.get(key) > resourceValuesNoRsDiff.get(key).get("max")) {
+                            resourceValuesNoRsDiff.get(key).put("max", (double) values.get(key));
+                        }
+                        resourceValuesNoRsDiff.get(key).put(
+                            "sum", resourceValuesNoRsDiff.get(key).get("sum") + (double) values.get(key));
+                        resourceValuesNoRsDiff.get(key).put("count", resourceValuesNoRsDiff.get(key).get("count") + 1);
                     }
-                    if ((double) values.get(key) > resourceValuesNoRsDiff.get(key).get("max")) {
-                        resourceValuesNoRsDiff.get(key).put("max", (double) values.get(key));
-                    }
-                    resourceValuesNoRsDiff.get(key).put(
-                        "sum", resourceValuesNoRsDiff.get(key).get("sum") + (double) values.get(key));
-                    resourceValuesNoRsDiff.get(key).put("count", resourceValuesNoRsDiff.get(key).get("count") + 1);
                 }
-
             } else if (host instanceof HostDynamic && (vm instanceof OnDemandInstance || (vm instanceof SpotInstance && ((SpotInstance) vm).getPriority()))) {
                 HostDynamic dynamicHost = (HostDynamic) host;
                 if (vm.getStorage().getCapacity() <= dynamicHost.getSpotStorageCapacityUsage() &&
@@ -159,21 +151,27 @@ public class DynamicAllocationHLEM extends DynamicAllocation {
             }
         }
 
-
         ////////////////////////////////////////////////////
         ////////////////////////////////////////////////////
 
         if(suitableHosts.size() > 1) {
 
+            LOGGER.info("Suitable hosts found {}", suitableHosts.size());
+
             SortedMap<Double, Host> sortedHosts = hostEvaluation(resourceValues, suitableHosts);
             return Optional.of(sortedHosts.get(sortedHosts.firstKey()));
 
+
         } else if (suitableHosts.size() == 1) {
+
+            LOGGER.info("Suitable hosts found {}", suitableHosts.size());
 
             return suitableHosts.keySet().stream().findFirst();
 
 
         } else if(suitableHostsNoRsDiff.size() > 1) {
+
+            LOGGER.info("NoRsDiff hosts found {}", suitableHostsNoRsDiff.size());
 
             SortedMap<Double, Host> sortedHosts = hostEvaluation(resourceValuesNoRsDiff, suitableHostsNoRsDiff);
 
@@ -181,10 +179,14 @@ public class DynamicAllocationHLEM extends DynamicAllocation {
 
         } else if (suitableHostsNoRsDiff.size() == 1) {
 
+            LOGGER.info("NoRsDiff hosts found {}", suitableHostsNoRsDiff.size());
+
             return suitableHostsNoRsDiff.keySet().stream().findFirst();
 
         }
         else if (suitableHostsSpot.size() > 1) {
+
+            LOGGER.info("HostsSpot found {}", suitableHostsSpot.size());
 
             SortedMap<Double, Host> sortedHosts = hostEvaluation(resourceValuesSpot, suitableHostsSpot);
             freeCapacity(sortedHosts.get(sortedHosts.firstKey()), vm, getDatacenter());
@@ -194,8 +196,9 @@ public class DynamicAllocationHLEM extends DynamicAllocation {
         }
         else if (suitableHostsSpot.size() == 1) {
 
-            freeCapacity(suitableHostsSpot.keySet().stream().findFirst().get(), vm, getDatacenter());
+            LOGGER.info("HostsSpot found {}", suitableHostsSpot.size());
 
+            freeCapacity(suitableHostsSpot.keySet().stream().findFirst().get(), vm, getDatacenter());
             return suitableHostsSpot.keySet().stream().findFirst();
         }
 

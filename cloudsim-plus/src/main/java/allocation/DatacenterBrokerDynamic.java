@@ -231,7 +231,7 @@ public class DatacenterBrokerDynamic extends allocation.DatacenterBrokerAbstract
         if (vm.isCreated()) {
             if((delay > DEF_VM_DESTRUCTION_DELAY && vm.isIdleEnough(delay)) || isFinished()) {
                 LOGGER.info("{}: {}: Requesting {} destruction.", getSimulation().clockStr(), getName(), vm);
-                resubmitSomeVmsDelayed(15, 5);
+                resubmitSomeVmsDelayed(2, 5);
                 sendNow(getDatacenter(vm), CloudSimTags.VM_DESTROY, vm);
             }
 
